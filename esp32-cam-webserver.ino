@@ -8,6 +8,9 @@
 #include "src/parsebytes.h"
 #include "time.h"
 #include <ESPmDNS.h>
+#include <ESP32Servo.h>
+
+#include "TcpRcClient.h"
 
 
 /* This sketch is a extension/expansion/reork of the 'official' ESP32 Camera example
@@ -796,50 +799,90 @@ void setup() {
 
     // As a final init step chomp out the serial buffer in case we have recieved mis-keys or garbage during startup
     while (Serial.available()) Serial.read();
-}
 
-void loop() {
-    /*
-     *  Just loop forever, reconnecting Wifi As necesscary in client mode
-     * The stream and URI handler processes initiated by the startCameraServer() call at the
-     * end of setup() will handle the camera and UI processing from now on.
-    */
-    if (accesspoint) {
-        // Accespoint is permanently up, so just loop, servicing the captive portal as needed
-        // Rather than loop forever, follow the watchdog, in case we later add auto re-scan.
-        unsigned long start = millis();
-        while (millis() - start < WIFI_WATCHDOG ) {
-            delay(100);
-            if (otaEnabled) ArduinoOTA.handle();
-            handleSerial();
-            if (captivePortal) dnsServer.processNextRequest();
-        }
-    } else {
-        // client mode can fail; so reconnect as appropriate
-        static bool warned = false;
-        if (WiFi.status() == WL_CONNECTED) {
-            // We are connected, wait a bit and re-check
-            if (warned) {
-                // Tell the user if we have just reconnected
-                Serial.println("WiFi reconnected");
-                warned = false;
-            }
-            // loop here for WIFI_WATCHDOG, turning debugData true/false depending on serial input..
+
+    // Start the RC reading server
+    TcpRcClient rcClient(9876);
+    rcClient.init();
+
+    // Init servos
+    Servo servo1; 
+    Servo servo2;
+    servo1.attach(12);
+    servo2.attach(13);
+    servo1.write(90);
+    servo2.write(90);
+
+    float servo1Pos = 90;
+    float servo2Pos = 90;
+
+    auto clamp = [](float val, float min, float max) {
+        if (val < min) return min;
+        if (val > max) return max;
+        return val;
+    };
+
+    auto processRC = [&rcClient, &servo1, &servo2, &servo1Pos, &servo2Pos, clamp]() {
+        rcClient.read();
+
+        servo1Pos += (float)rcClient.getX1() * -0.002;
+        servo2Pos += (float)rcClient.getY1() * -0.002;
+        servo1Pos = clamp(servo1Pos, 0, 180);
+        servo2Pos = clamp(servo2Pos, 0, 180);
+
+        setLamp(map(rcClient.getSliderL(), -128, 127, 0, 100));
+        servo1.write(servo1Pos);
+        servo2.write(servo2Pos);
+    };
+
+    // Main loop instead of loop() to avoid global vars to interact with it
+    while (true) {
+        /*
+        *  Just loop forever, reconnecting Wifi As necesscary in client mode
+        * The stream and URI handler processes initiated by the startCameraServer() call at the
+        * end of setup() will handle the camera and UI processing from now on.
+        */
+        if (accesspoint) {
+            // Accespoint is permanently up, so just loop, servicing the captive portal as needed
+            // Rather than loop forever, follow the watchdog, in case we later add auto re-scan.
             unsigned long start = millis();
             while (millis() - start < WIFI_WATCHDOG ) {
-                delay(100);
+                processRC();
+                delay(10);
                 if (otaEnabled) ArduinoOTA.handle();
                 handleSerial();
+                if (captivePortal) dnsServer.processNextRequest();
             }
         } else {
-            // disconnected; attempt to reconnect
-            if (!warned) {
-                // Tell the user if we just disconnected
-                WiFi.disconnect();  // ensures disconnect is complete, wifi scan cleared
-                Serial.println("WiFi disconnected, retrying");
-                warned = true;
+            // client mode can fail; so reconnect as appropriate
+            static bool warned = false;
+            if (WiFi.status() == WL_CONNECTED) {
+                // We are connected, wait a bit and re-check
+                if (warned) {
+                    // Tell the user if we have just reconnected
+                    Serial.println("WiFi reconnected");
+                    warned = false;
+                }
+                // loop here for WIFI_WATCHDOG, turning debugData true/false depending on serial input..
+                unsigned long start = millis();
+                while (millis() - start < WIFI_WATCHDOG ) {
+                    delay(10);
+                    if (otaEnabled) ArduinoOTA.handle();
+                    processRC();
+                    handleSerial();
+                }
+            } else {
+                // disconnected; attempt to reconnect
+                if (!warned) {
+                    // Tell the user if we just disconnected
+                    WiFi.disconnect();  // ensures disconnect is complete, wifi scan cleared
+                    Serial.println("WiFi disconnected, retrying");
+                    warned = true;
+                }
+                WifiSetup();
             }
-            WifiSetup();
-        }
+        }        
     }
 }
+
+void loop() {}
