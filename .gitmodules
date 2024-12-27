@@ -1,0 +1,3 @@
+[submodule "bt-remote"]
+	path = bt-remote
+	url = git@github.com:poconoco/bt-remote.git
