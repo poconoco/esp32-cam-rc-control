@@ -10,7 +10,7 @@
 #include <ESPmDNS.h>
 #include <ESP32Servo.h>
 
-#include "TcpRcClient.h"
+#include "Esp32TcpRcClient.h"
 
 
 /* This sketch is a extension/expansion/reork of the 'official' ESP32 Camera example
@@ -802,7 +802,7 @@ void setup() {
 
 
     // Start the RC reading server
-    TcpRcClient rcClient(9876);
+    Esp32TcpRcClient rcClient(9876);
     rcClient.init();
 
     // Init servos
@@ -823,16 +823,17 @@ void setup() {
     };
 
     auto processRC = [&rcClient, &servo1, &servo2, &servo1Pos, &servo2Pos, clamp]() {
-        rcClient.read();
+        rcClient.tick();
 
-        servo1Pos += (float)rcClient.getX1() * -0.002;
-        servo2Pos += (float)rcClient.getY1() * -0.002;
+        servo1Pos += (float)rcClient.getX1() * 0.002;
+        servo2Pos += (float)rcClient.getY1() * 0.002;
         servo1Pos = clamp(servo1Pos, 0, 180);
         servo2Pos = clamp(servo2Pos, 0, 180);
 
         setLamp(map(rcClient.getSliderL(), -128, 127, 0, 100));
-        servo1.write(servo1Pos);
-        servo2.write(servo2Pos);
+        servo1.write(180-servo1Pos);
+        servo2.write(180-servo2Pos);
+        rcClient.send("H: "+String((int)servo1Pos)+"\nV: "+String((int)servo2Pos));
     };
 
     // Main loop instead of loop() to avoid global vars to interact with it
