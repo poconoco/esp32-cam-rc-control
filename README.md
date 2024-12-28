@@ -1,3 +1,12 @@
+# poconoco fork notes
+
+The sole purpose of this fork is to demonstrate how to integrate Esp32TcpRcClient into ESP32-Cam
+firmware to remotely control the servos that for example can rotate the camera. Or similar approach 
+can be used to control 360 degrees servos, or DC motors via PWM driver board for FPV-enabled bot.
+
+
+Original README:
+----------------------------------------------
 # IMPORTANT!
 This is a Old and rather Obsolete sketch; it only works with a very old version of the ESP32 Arduino core (2.0.2) and is missing all the improvements that espressif have made since then..
 
