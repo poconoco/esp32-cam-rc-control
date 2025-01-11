@@ -339,7 +339,7 @@ void StartCamera() {
     config.xclk_freq_hz = xclk * 1000000;
     config.pixel_format = PIXFORMAT_JPEG;
     // Low(ish) default framesize and quality
-    config.frame_size = FRAMESIZE_SVGA;
+    config.frame_size = FRAMESIZE_QVGA;
     config.jpeg_quality = 12;
     config.fb_location = CAMERA_FB_IN_PSRAM;
     config.fb_count = 2;
